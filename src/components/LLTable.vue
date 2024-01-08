@@ -4,19 +4,12 @@ import { parseProduction, transformLeftRecurse, createNullableFirstFollowTable }
 import type { Production, TypingProduction, NullableFirstFollowTable } from '../types/production'
 import ProductionView from './ProductionView.vue';
 import ProductionSymbol from './ProductionSymbol.vue';
+import ProductionInput from './ProductionInput.vue';
 
 const productionList = ref<TypingProduction[]>([{"left":"S","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
 const parsedProductionList = ref<Production[]>([])
 const rightRecurseProductionList = ref<Production[]>([])
 const nullableFirstFollowTable = ref<NullableFirstFollowTable>({ rows: [] })
-
-const onButtonAdd = () => {
-  productionList.value.push({ left: '', right: '' })
-}
-
-const onRemoveProduction = (index: number) => {
-  productionList.value.splice(index, 1)
-}
 
 watchEffect(() => {
   parsedProductionList.value = parseProduction(productionList.value)
@@ -28,17 +21,7 @@ watchEffect(() => {
 <template>
   <section>
     <h2>Grammar</h2>
-    <button @click="onButtonAdd">Add</button>
-    <div class="production__list">
-      <template v-for="(pro, index) of productionList">
-        <div class="production__list__item">
-          <input v-model="pro.left"/>
-          →
-          <input v-model="pro.right"/>
-          <button @click="onRemoveProduction(index)">x</button>
-        </div>
-      </template>
-    </div>
+    <ProductionInput v-model="productionList"></ProductionInput>
   </section>
 
   <section>
