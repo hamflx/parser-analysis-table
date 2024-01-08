@@ -3,7 +3,7 @@ import { ref, watchEffect } from 'vue';
 import { parseProduction, transformLeftRecurse, createNullableFirstFollowTable } from './analysis'
 import type { Production, TypingProduction, NullableFirstFollowTable } from '../types/production'
 
-const productionList = ref<TypingProduction[]>([{"left":"S","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"-N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
+const productionList = ref<TypingProduction[]>([{"left":"S","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
 const parsedProductionList = ref<Production[]>([])
 const rightRecurseProductionList = ref<Production[]>([])
 const nullableFirstFollowTable = ref<NullableFirstFollowTable>({ rows: [] })
