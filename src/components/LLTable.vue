@@ -14,8 +14,11 @@ const onButtonAdd = () => {
   productionList.value.push({ left: '', right: '' })
 }
 
+const onRemoveProduction = (index: number) => {
+  productionList.value.splice(index, 1)
+}
+
 watchEffect(() => {
-  console.log(productionList.value)
   parsedProductionList.value = parseProduction(productionList.value)
   rightRecurseProductionList.value = transformLeftRecurse(parsedProductionList.value)
   nullableFirstFollowTable.value = createNullableFirstFollowTable(rightRecurseProductionList.value)
@@ -27,11 +30,12 @@ watchEffect(() => {
     <h2>Grammar</h2>
     <button @click="onButtonAdd">Add</button>
     <div class="production__list">
-      <template v-for="pro of productionList">
+      <template v-for="(pro, index) of productionList">
         <div class="production__list__item">
           <input v-model="pro.left"/>
           →
           <input v-model="pro.right"/>
+          <button @click="onRemoveProduction(index)">x</button>
         </div>
       </template>
     </div>
@@ -81,5 +85,16 @@ watchEffect(() => {
 <style scoped lang="scss">
 section {
   margin: 12px;
+}
+
+table {
+  th {
+    text-align: left;
+  }
+
+  th,
+  td {
+    padding: 0 20px 0 0;
+  }
 }
 </style>

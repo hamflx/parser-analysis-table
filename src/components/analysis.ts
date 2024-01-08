@@ -108,7 +108,7 @@ const isSymbolNullable = (right: ProductionRight, table: NullableFirstFollowTabl
   })
 }
 
-const getSymbolFirstSet = (right: ProductionRight, table: NullableFirstFollowTable) => {
+const getProductionFirstSet = (right: ProductionRight, table: NullableFirstFollowTable) => {
   const firstSet: string[] = []
   for (const {symbol, type} of right.content) {
     if (type === SymbolType.Terminal) {
@@ -122,6 +122,43 @@ const getSymbolFirstSet = (right: ProductionRight, table: NullableFirstFollowTab
     }
   }
   return firstSet
+}
+
+const analyseFollowSet = (left: ProductionSymbol, right: ProductionRight, table: NullableFirstFollowTable) => {
+  let changed = false
+  const addFollowSet = (row: NullableFirstFollowTableRow, symbols: string[]) => {
+    const len = row.follow.size
+    symbols.forEach(s => row.follow.add(s))
+    return len !== row.follow.size
+  }
+  for (let i = 0; i < right.content.length; i++) {
+    const {symbol, type} = right.content[i]
+    const row = table.rows.find(r => r.nonTerminalSymbol === symbol)!
+    if (type === SymbolType.Terminal) continue
+    for (let j = i + 1; j < right.content.length; j++) {
+      const nextSymbol = right.content[j]
+      if (nextSymbol.type === SymbolType.Terminal) {
+        changed ||= addFollowSet(row, [nextSymbol.symbol])
+      } else {
+        const nextRow = table.rows.find(r => r.nonTerminalSymbol === nextSymbol.symbol)!
+        changed ||= addFollowSet(row, [...nextRow.first])
+        if (!nextRow.nullable) {
+          break
+        }
+      }
+    }
+
+    const nextSymbols = right.content.slice(i + 1)
+    const nextNullable = !nextSymbols.length || nextSymbols.every(s => {
+      return s.type === SymbolType.NonTerminal &&
+      table.rows.find(r => r.nonTerminalSymbol === s.symbol)!.nullable
+    })
+    if (nextNullable) {
+      const leftRow = table.rows.find(r => r.nonTerminalSymbol === left.symbol)!
+      changed ||= addFollowSet(row, [...leftRow.follow])
+    }
+  }
+  return changed
 }
 
 export const createNullableFirstFollowTable = (productionList: Production[]): NullableFirstFollowTable => {
@@ -143,7 +180,7 @@ export const createNullableFirstFollowTable = (productionList: Production[]): Nu
       const prevIsNullable = row.nullable
       if (isNullable !== prevIsNullable) {
         row.nullable = isNullable
-        nullableChanged = true
+        nullableChanged ||= true
       }
     }
   }
@@ -153,11 +190,22 @@ export const createNullableFirstFollowTable = (productionList: Production[]): Nu
     for (const {left, right} of productionList) {
       const row = table.rows.find(r => r.nonTerminalSymbol === left.symbol)!
       const len = row.first.size
-      right.map(r => getSymbolFirstSet(r, table)).flat().forEach(s => row.first.add(s))
-      if (len !== row.first.size) {
-        firstSetChanged = true
-      }
+      right.map(r => getProductionFirstSet(r, table)).flat().forEach(s => row.first.add(s))
+      let changed = len !== row.first.size
+      firstSetChanged ||= changed
     }
+  }
+  let followSetChanged = true
+  while (followSetChanged) {
+    followSetChanged = false
+    for (const {left, right} of productionList) {
+      const changed = right.map(r => analyseFollowSet(left, r, table)).some(c => c)
+      followSetChanged ||= changed
+    }
+  }
+  for (const row of rows) {
+    row.first = new Set([...row.first].sort())
+    row.follow = new Set([...row.follow].sort())
   }
   return table
 }
