@@ -23,6 +23,7 @@ defineProps<{ productionList: Production[] }>()
               <div class="production__list__item__cell">
                 <template v-for="item of pro.right">
                   <div class="production__list__item__right__item">
+                    <ProductionSymbol v-if="!item.content.length" symbol="ɛ"></ProductionSymbol>
                     <template v-for="sym of item.content">
                       <ProductionSymbol :symbol="sym.symbol"></ProductionSymbol>
                     </template>

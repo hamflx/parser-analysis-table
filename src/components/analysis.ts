@@ -101,29 +101,63 @@ export const parseProduction = (input: TypingProduction[]): Production[] => {
   return productionList
 }
 
+const isSymbolNullable = (right: ProductionRight, table: NullableFirstFollowTable) => {
+  return !right.content.length || right.content.every(sym => {
+    return sym.type === SymbolType.NonTerminal &&
+      table.rows.find(r => r.nonTerminalSymbol === sym.symbol)!.nullable
+  })
+}
+
+const getSymbolFirstSet = (right: ProductionRight, table: NullableFirstFollowTable) => {
+  const firstSet: string[] = []
+  for (const {symbol, type} of right.content) {
+    if (type === SymbolType.Terminal) {
+      firstSet.push(symbol)
+      break
+    }
+    const row = table.rows.find(r => r.nonTerminalSymbol === symbol)!
+    firstSet.push(...row.first)
+    if (!row.nullable) {
+      break
+    }
+  }
+  return firstSet
+}
+
 export const createNullableFirstFollowTable = (productionList: Production[]): NullableFirstFollowTable => {
   const rows: NullableFirstFollowTableRow[] = productionList.map(p => {
     return {
       nonTerminalSymbol: p.left.symbol,
       nullable: false,
-      first: [],
-      follow: []
+      first: new Set(),
+      follow: new Set()
     } satisfies NullableFirstFollowTableRow
   })
-  let changed = true
-  while (changed) {
+  const table = {rows}
+  let nullableChanged = true
+  while (nullableChanged) {
+    nullableChanged = false
     for (const {left, right} of productionList) {
-      for (const {content: items} of right) {
-        const isNullable = !items.length
-        const row = rows.find(r => r.nonTerminalSymbol === left.symbol)!
-        const prevIsNullable = row.nullable
-        if (isNullable !== prevIsNullable) {
-          row.nullable = isNullable
-          changed = true
-        }
+      const row = rows.find(r => r.nonTerminalSymbol === left.symbol)!
+      const isNullable = right.some(r => isSymbolNullable(r, table))
+      const prevIsNullable = row.nullable
+      if (isNullable !== prevIsNullable) {
+        row.nullable = isNullable
+        nullableChanged = true
       }
     }
-    changed = false
   }
-  return {rows}
+  let firstSetChanged = true
+  while (firstSetChanged) {
+    firstSetChanged = false
+    for (const {left, right} of productionList) {
+      const row = table.rows.find(r => r.nonTerminalSymbol === left.symbol)!
+      const len = row.first.size
+      right.map(r => getSymbolFirstSet(r, table)).flat().forEach(s => row.first.add(s))
+      if (len !== row.first.size) {
+        firstSetChanged = true
+      }
+    }
+  }
+  return table
 }

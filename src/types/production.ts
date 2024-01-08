@@ -25,8 +25,8 @@ export interface TypingProduction {
 export interface NullableFirstFollowTableRow {
   nonTerminalSymbol: string
   nullable: boolean
-  first: string[]
-  follow: string[]
+  first: Set<string>
+  follow: Set<string>
 }
 
 export interface NullableFirstFollowTable {
