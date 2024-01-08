@@ -1,4 +1,4 @@
-import { NullableFirstFollowTable, NullableFirstFollowTableRow, Production, ProductionRight, ProductionSymbol, SymbolType, TypingProduction } from "../types/production";
+import { NullableFirstFollowTable, NullableFirstFollowTableRow, Production, ProductionRight, ProductionSymbol, ReplacementItem, SymbolType, TypingProduction } from "../types/production";
 
 const parseProductionRight = (right: string, nonTerminalSymbols: string[]): ProductionRight => {
   const symbols = right.split(/\s+/)
@@ -139,6 +139,7 @@ const analyseFollowSet = (left: ProductionSymbol, right: ProductionRight, table:
       const nextSymbol = right.content[j]
       if (nextSymbol.type === SymbolType.Terminal) {
         changed ||= addFollowSet(row, [nextSymbol.symbol])
+        break
       } else {
         const nextRow = table.rows.find(r => r.nonTerminalSymbol === nextSymbol.symbol)!
         changed ||= addFollowSet(row, [...nextRow.first])
@@ -208,4 +209,93 @@ export const createNullableFirstFollowTable = (productionList: Production[]): Nu
     row.follow = new Set([...row.follow].sort())
   }
   return table
+}
+
+const startsWithToken = (symbols: ProductionSymbol[], token: string, table: NullableFirstFollowTable): boolean => {
+  for (let i = 0; i < symbols.length; i++) {
+    const {symbol, type} = symbols[i]
+    if (type === SymbolType.Terminal) {
+      return symbol === token
+    }
+    const row = table.rows.find(r => r.nonTerminalSymbol === symbol)!
+    if (row.first.has(token)) return true
+    if (!row.nullable) break
+  }
+  return false
+}
+
+const replaceToken = (token: string, replacements: ReplacementItem[]): string => {
+  return replacements.find(r => r.find === token)?.replace ?? token
+}
+
+export const generateCode = (productionList: Production[], table: NullableFirstFollowTable, replacements: ReplacementItem[]): string => {
+  const allTokens = [...new Set(table.rows.map(r => [...r.first, ...r.follow]).flat())]
+  const gen = (leftSymbol: string, matches: Array<{left: ProductionSymbol, right: ProductionSymbol[], follow: boolean, tokens: string[]}>) => {
+    const matchArms = matches.map(({right, tokens}) => {
+      return `
+${tokens.map(t => replaceToken(t, replacements)).join(' | ')} => {
+  ${right.map(s => {
+    if (s.type === SymbolType.Terminal) {
+      return `tokenizer.eat(${replaceToken(s.symbol, replacements)});`
+    }
+    return `parse${s.symbol}(tokenizer);`
+  }).join('\n')}
+}
+      `.trim()
+    }).join('\n')
+    return `
+fn parse${leftSymbol} (tokenizer: &mut Tokenizer) {
+  match tokenizer.token() {
+    ${matchArms}
+    tok => panic!("invalid token: {:#?}", tok)
+  }
+}
+    `.trim()
+  }
+  return table.rows.map(r => {
+    const production = productionList.find(p => p.left.symbol === r.nonTerminalSymbol)!
+    const tokenProductionList = allTokens.map(
+      (token) => {
+        const matchedRightList = production.right.map((right, index) => {
+          const start = startsWithToken(right.content, token, table)
+          const nullable = !right.content.length || right.content.every(s => {
+            return s.type === SymbolType.NonTerminal &&
+              table.rows.find(r => r.nonTerminalSymbol === s.symbol)!.nullable
+          })
+          const follow = nullable && r.follow.has(token)
+          if (start || follow) {
+            return {follow, index}
+          }
+          return null
+        }).filter(Boolean)
+        return matchedRightList
+      },
+      []
+    )
+    const dup = tokenProductionList.find(t => t.length > 1)
+    if (dup) throw new Error('duplicate')
+
+    const map = tokenProductionList.reduce(
+      (map, list, tokenIndex) => {
+        const firstItem = list[0]
+        if (firstItem) {
+          const {index, follow} = firstItem
+          const record = map.get(index)
+          if (record) {
+            record.tokens.push(allTokens[tokenIndex])
+          } else {
+            map.set(index, {tokens: [allTokens[tokenIndex]], follow})
+          }
+        }
+        return map
+      },
+      new Map<number, {tokens: string[], follow: boolean}>()
+    )
+    const matchProductionTokens = [...map.entries()].map(([index, {tokens, follow}]) => {
+      const left = production.left
+      const right = production.right[index].content
+      return {left, right, follow, tokens}
+    })
+    return gen(r.nonTerminalSymbol, matchProductionTokens)
+  }).join('\n')
 }

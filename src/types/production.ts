@@ -32,3 +32,8 @@ export interface NullableFirstFollowTableRow {
 export interface NullableFirstFollowTable {
   rows: NullableFirstFollowTableRow[]
 }
+
+export interface ReplacementItem {
+  find: string
+  replace: string
+}

@@ -1,20 +1,40 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
-import { parseProduction, transformLeftRecurse, createNullableFirstFollowTable } from './analysis'
-import type { Production, TypingProduction, NullableFirstFollowTable } from '../types/production'
+import { parseProduction, transformLeftRecurse, createNullableFirstFollowTable, generateCode } from './analysis'
+import { type Production, type TypingProduction, type NullableFirstFollowTable, ReplacementItem } from '../types/production'
 import ProductionView from './ProductionView.vue';
 import ProductionSymbol from './ProductionSymbol.vue';
 import ProductionInput from './ProductionInput.vue';
+import ReplacementList from './ReplacementList.vue';
 
-const productionList = ref<TypingProduction[]>([{"left":"S","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
+const productionList = ref<TypingProduction[]>([{"left":"P","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
 const parsedProductionList = ref<Production[]>([])
 const rightRecurseProductionList = ref<Production[]>([])
 const nullableFirstFollowTable = ref<NullableFirstFollowTable>({ rows: [] })
+const replacementList = ref<ReplacementItem[]>([
+  {find: 'id', replace: 'Token::Id(_)'},
+  {find: 'num', replace: 'Token::Num(_)'},
+  {find: 'if', replace: 'Token::If'},
+  {find: 'else', replace: 'Token::Else'},
+  {find: '(', replace: 'Token::LParen'},
+  {find: ')', replace: 'Token::RParen'},
+  {find: '<', replace: 'Token::LessThan'},
+  {find: '>', replace: 'Token::GreaterThan'},
+  {find: '+', replace: 'Token::Plus'},
+  {find: '-', replace: 'Token::Minus'},
+  {find: '*', replace: 'Token::Mul'},
+  {find: '/', replace: 'Token::Div'},
+  {find: '$', replace: 'Token::Eof'},
+  {find: '{', replace: 'Token::LBrace'},
+  {find: '}', replace: 'Token::RBrace'},
+])
+const generatedCode = ref('')
 
 watchEffect(() => {
   parsedProductionList.value = parseProduction(productionList.value)
   rightRecurseProductionList.value = transformLeftRecurse(parsedProductionList.value)
   nullableFirstFollowTable.value = createNullableFirstFollowTable(rightRecurseProductionList.value)
+  generatedCode.value = generateCode(rightRecurseProductionList.value, nullableFirstFollowTable.value, replacementList.value)
 })
 </script>
 
@@ -62,6 +82,18 @@ watchEffect(() => {
         </template>
       </table>
     </div>
+  </section>
+
+  <section>
+    <h2>Token Replacements</h2>
+    <ReplacementList v-model="replacementList"></ReplacementList>
+  </section>
+
+  <section>
+    <h2>Code Generate</h2>
+    <textarea :value="generatedCode">
+    </textarea>
+    <pre>{{ generatedCode }}</pre>
   </section>
 </template>
 
