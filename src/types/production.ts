@@ -1,11 +1,20 @@
+export enum SymbolType {
+  NonTerminal,
+  Terminal
+}
+
 export interface ProductionSymbol {
-  type: 'ter' | 'nonter'
-  content: string
+  type: SymbolType
+  symbol: string
+}
+
+export interface ProductionRight {
+  content: ProductionSymbol[]
 }
 
 export interface Production {
   left: ProductionSymbol
-  right: ProductionSymbol[]
+  right: ProductionRight[]
 }
 
 export interface TypingProduction {
