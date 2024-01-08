@@ -1,4 +1,4 @@
-import { Production, ProductionRight, ProductionSymbol, SymbolType, TypingProduction } from "../types/production";
+import { NullableFirstFollowTable, NullableFirstFollowTableRow, Production, ProductionRight, ProductionSymbol, SymbolType, TypingProduction } from "../types/production";
 
 const parseProductionRight = (right: string, nonTerminalSymbols: string[]): ProductionRight => {
   const symbols = right.split(/\s+/)
@@ -99,4 +99,31 @@ export const parseProduction = (input: TypingProduction[]): Production[] => {
     }
   }
   return productionList
+}
+
+export const createNullableFirstFollowTable = (productionList: Production[]): NullableFirstFollowTable => {
+  const rows: NullableFirstFollowTableRow[] = productionList.map(p => {
+    return {
+      nonTerminalSymbol: p.left.symbol,
+      nullable: false,
+      first: [],
+      follow: []
+    } satisfies NullableFirstFollowTableRow
+  })
+  let changed = true
+  while (changed) {
+    for (const {left, right} of productionList) {
+      for (const {content: items} of right) {
+        const isNullable = !items.length
+        const row = rows.find(r => r.nonTerminalSymbol === left.symbol)!
+        const prevIsNullable = row.nullable
+        if (isNullable !== prevIsNullable) {
+          row.nullable = isNullable
+          changed = true
+        }
+      }
+    }
+    changed = false
+  }
+  return {rows}
 }

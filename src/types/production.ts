@@ -21,3 +21,14 @@ export interface TypingProduction {
   left: string
   right: string
 }
+
+export interface NullableFirstFollowTableRow {
+  nonTerminalSymbol: string
+  nullable: boolean
+  first: string[]
+  follow: string[]
+}
+
+export interface NullableFirstFollowTable {
+  rows: NullableFirstFollowTableRow[]
+}
