@@ -7,7 +7,7 @@ import ProductionSymbol from './ProductionSymbol.vue';
 import ProductionInput from './ProductionInput.vue';
 import ReplacementList from './ReplacementList.vue';
 
-const productionList = ref<TypingProduction[]>([{"left":"P","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"}])
+const productionList = ref<TypingProduction[]>([{"left":"P","right":"E $"},{"left":"E","right":"E < B"},{"left":"E","right":"E > B"},{"left":"E","right":"B"},{"left":"B","right":"B + T"},{"left":"B","right":"B - T"},{"left":"B","right":"T"},{"left":"T","right":"T * F"},{"left":"T","right":"T / F"},{"left":"T","right":"F"},{"left":"F","right":"N"},{"left":"F","right":"- N"},{"left":"N","right":"id I"},{"left":"N","right":"num"},{"left":"N","right":"( E )"},{"left":"N","right":"if E { E } else { E }"},{"left":"I","right":""},{"left":"I","right":"( L )"},{"left":"L","right":""},{"left":"L","right":"M"},{"left":"M","right":"M , E"},{"left":"M","right":"E"}])
 const parsedProductionList = ref<Production[]>([])
 const rightRecurseProductionList = ref<Production[]>([])
 const nullableFirstFollowTable = ref<NullableFirstFollowTable>({ rows: [] })
@@ -27,6 +27,7 @@ const replacementList = ref<ReplacementItem[]>([
   {find: '$', replace: 'Token::Eof'},
   {find: '{', replace: 'Token::LBrace'},
   {find: '}', replace: 'Token::RBrace'},
+  {find: ',', replace: 'Token::Comma'},
 ])
 const generatedCode = ref('')
 
