@@ -244,7 +244,7 @@ ${tokens.map(t => replaceToken(t, replacements)).join(' | ')} => {
       `.trim()
     }).join('\n')
     return `
-fn parse${leftSymbol} (tokenizer: &mut Tokenizer) {
+fn parse${leftSymbol} (tokenizer: &mut Tokenizer) -> Expression {
   match tokenizer.token() {
     ${matchArms}
     tok => panic!("invalid token: {:#?}", tok)
