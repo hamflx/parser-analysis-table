@@ -31,10 +31,14 @@ const replacementList = ref<ReplacementItem[]>([
 const generatedCode = ref('')
 
 watchEffect(() => {
-  parsedProductionList.value = parseProduction(productionList.value)
-  rightRecurseProductionList.value = transformLeftRecurse(parsedProductionList.value)
-  nullableFirstFollowTable.value = createNullableFirstFollowTable(rightRecurseProductionList.value)
-  generatedCode.value = generateCode(rightRecurseProductionList.value, nullableFirstFollowTable.value, replacementList.value)
+  try {
+    parsedProductionList.value = parseProduction(productionList.value)
+    rightRecurseProductionList.value = transformLeftRecurse(parsedProductionList.value)
+    nullableFirstFollowTable.value = createNullableFirstFollowTable(rightRecurseProductionList.value)
+    generatedCode.value = generateCode(rightRecurseProductionList.value, nullableFirstFollowTable.value, replacementList.value)
+  } catch (e) {
+    console.error(e)
+  }
 })
 </script>
 
