@@ -3,8 +3,8 @@ import { TypingProduction } from '../types/production';
 
 const productionList= defineModel<TypingProduction[]>({ required: true })
 
-const onButtonAdd = () => {
-  productionList.value.push({ left: '', right: '' })
+const onButtonAdd = (index: number) => {
+  productionList.value.splice(index + 1, 0, { left: '', right: '' })
 }
 
 const onRemoveProduction = (index: number) => {
@@ -14,7 +14,7 @@ const onRemoveProduction = (index: number) => {
 
 <template>
   <div class="production__input">
-    <button @click="onButtonAdd">Add</button>
+    <button @click="onButtonAdd(-1)">Add</button>
     <div class="production__list">
       <template v-for="(pro, index) of productionList">
         <div class="production__list__item">
@@ -22,6 +22,7 @@ const onRemoveProduction = (index: number) => {
           →
           <input v-model="pro.right"/>
           <button @click="onRemoveProduction(index)">x</button>
+          <button @click="onButtonAdd(index)">+</button>
         </div>
       </template>
     </div>
