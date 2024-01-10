@@ -247,7 +247,7 @@ ${tokens.map(t => replaceToken(t, replacements)).join(' | ')} => {
 fn parse${leftSymbol} (tokenizer: &mut Tokenizer) -> Expression {
   match tokenizer.token() {
     ${matchArms}
-    tok => panic!("invalid token: {:#?}", tok)
+    tok => panic!("expected ${matches.map(m => m.tokens).flat().map(t => `\`${replaceToken(t, replacements)}\``).join(', ')}, but got {:#?}", tok)
   }
 }
     `.trim()
