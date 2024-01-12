@@ -1,14 +1,13 @@
 import { NullableFirstFollowTable, NullableFirstFollowTableRow, Production, ProductionRight, ProductionSymbol, ReplacementItem, SymbolType, TypingProduction } from "../types/production";
 
-const parseProductionRight = (right: string, nonTerminalSymbols: string[]): ProductionRight => {
+const parseProductionRight = (right: string, nonTerminalSymbols: string[]): ProductionSymbol[] => {
   const symbols = right.split(/\s+/)
-  const content = symbols.filter(s => s).map(s => {
+  return symbols.filter(s => s).map(s => {
     return {
       symbol: s,
       type: nonTerminalSymbols.includes(s) ? SymbolType.NonTerminal : SymbolType.Terminal
     } satisfies ProductionSymbol
   })
-  return {content}
 }
 
 const equalProductionRight = (a: ProductionRight, b: ProductionRight): boolean => {
@@ -23,7 +22,7 @@ const isLeftRecurse = (production: Production): boolean => {
   })
 }
 
-export const transformLeftRecurse = (productionList: Production[]): Production[] => {
+export const eliminateLeftRecurse = (productionList: Production[]): Production[] => {
   const transformed: Production[] = []
   for (const production of productionList) {
     if (!isLeftRecurse(production)) {
@@ -35,7 +34,7 @@ export const transformLeftRecurse = (productionList: Production[]): Production[]
       left,
       right: []
     }
-    const symbol_ = {
+    const symbol_: ProductionSymbol = {
       type: SymbolType.NonTerminal,
       symbol: left.symbol + '_'
     }
@@ -54,19 +53,24 @@ export const transformLeftRecurse = (productionList: Production[]): Production[]
           content: [
             ...rightItem.content.slice(1),
             symbol_
-          ]
+          ],
+          emits: rightItem.emits,
+          acceptPrefix: true
         })
       } else {
         newProduction.right.push({
           content: [
             ...rightItem.content,
             symbol_
-          ]
+          ],
+          emits: '',
+          passToRight: true
         })
       }
     }
     newProduction_.right.push({
-      content: []
+      content: [],
+      emits: ''
     })
     transformed.push(newProduction)
     transformed.push(newProduction_)
@@ -77,12 +81,13 @@ export const transformLeftRecurse = (productionList: Production[]): Production[]
 export const parseProduction = (input: TypingProduction[]): Production[] => {
   const productionList: Production[] = []
   const nonTerminalSymbols = input.map(i => i.left.trim())
-  for (let {left, right} of input) {
+  for (let {left, right, emits} of input) {
     left = left.trim()
     right = right.trim()
     if (!left) continue
     const existsProduction = productionList.find(p => p.left.symbol === left)
-    const productionRight: ProductionRight = parseProductionRight(right, nonTerminalSymbols)
+    const rightSymbols = parseProductionRight(right, nonTerminalSymbols)
+    const productionRight: ProductionRight = {content: rightSymbols, emits}
     if (existsProduction) {
       const existsProductionRight = existsProduction.right.find(r => equalProductionRight(r, productionRight))
       if (!existsProductionRight) {
@@ -124,7 +129,7 @@ const getProductionFirstSet = (right: ProductionRight, table: NullableFirstFollo
   return firstSet
 }
 
-const analyseFollowSet = (left: ProductionSymbol, right: ProductionRight, table: NullableFirstFollowTable) => {
+const analyzeFollowSet = (left: ProductionSymbol, right: ProductionRight, table: NullableFirstFollowTable) => {
   let changed = false
   const addFollowSet = (row: NullableFirstFollowTableRow, symbols: string[]) => {
     const len = row.follow.size
@@ -200,7 +205,7 @@ export const createNullableFirstFollowTable = (productionList: Production[]): Nu
   while (followSetChanged) {
     followSetChanged = false
     for (const {left, right} of productionList) {
-      const changed = right.map(r => analyseFollowSet(left, r, table)).some(c => c)
+      const changed = right.map(r => analyzeFollowSet(left, r, table)).some(c => c)
       followSetChanged ||= changed
     }
   }
@@ -228,26 +233,89 @@ const replaceToken = (token: string, replacements: ReplacementItem[]): string =>
   return replacements.find(r => r.find === token)?.replace ?? token
 }
 
+const wrapMatchArm = (pattern: string, action: string) => {
+  return `
+    ${pattern} => {
+      ${action}
+    }
+  `.trim()
+}
+
+const emitMatchArms = (production: Production, replacements: ReplacementItem[], matches: Array<{right: ProductionRight, follow: boolean, tokens: string[]}>) => {
+  const acceptPrefix = production.right.some(r => r.acceptPrefix)
+  return matches.map(({right, tokens}) => {
+    const {content: symbols, passToRight} = right
+    const pattern = tokens.map(t => replaceToken(t, replacements)).join(' | ')
+    if (acceptPrefix) {
+      const [lines, replacedEmits] = symbols.slice(0, -1).reduce(
+        ([lines, emits], sym, index) => {
+          if (sym.type === SymbolType.Terminal) {
+            const code = `tokenizer.eat(${replaceToken(sym.symbol, replacements)});`
+            return [[...lines, code], emits]
+          }
+          const ident = `e${index}`
+          const code = `let ${ident} = parse${sym.symbol}(tokenizer);`
+          return [[...lines, code], emits.replace(`$${index + 2}`, ident)]
+        },
+        [[] as string[], right.emits] as const
+      )
+      const lastSym = symbols[symbols.length - 1]
+      if (!lastSym) {
+        return wrapMatchArm(pattern, 'prefix')
+      }
+      if (lastSym.type !== SymbolType.NonTerminal) throw new Error('lastSym.type !== NonTerminal')
+      const tail = `parse${lastSym.symbol}(tokenizer, ${replacedEmits.replace('$1', 'prefix')})`
+      return wrapMatchArm(pattern, [...lines, tail].join('\n'))
+    } else if (passToRight) {
+      const [ident, lines] = symbols.slice(0, -1).reduce(
+        ([lastIdent, lines], sym, index) => {
+          if (sym.type === SymbolType.Terminal) {
+            const code = `tokenizer.eat(${replaceToken(sym.symbol, replacements)});`
+            return [lastIdent, [...lines, code]]
+          }
+          const ident = `e${index}`
+          const code = `let ${ident} = parse${sym.symbol}(tokenizer);`
+          return [ident, [...lines, code]]
+        },
+        ['', [] as string[]]
+      )
+      const lastSym = symbols[symbols.length - 1]
+      if (!lastSym) throw new Error('no lastSym')
+      if (lastSym.type !== SymbolType.NonTerminal) throw new Error('lastSym.type !== NonTerminal')
+      const tail = `parse${lastSym.symbol}(tokenizer, ${ident})`
+      return wrapMatchArm(pattern, [...lines, tail].join('\n'))
+    } else {
+      const [ident, lines, emits] = symbols.reduce(
+        ([lastIdent, lines, emits], sym, index) => {
+          if (sym.type === SymbolType.Terminal) {
+            const code = `tokenizer.eat(${replaceToken(sym.symbol, replacements)});`
+            return [lastIdent, [...lines, code], emits]
+          }
+          const ident = `e${index}`
+          const code = `let ${ident} = parse${sym.symbol}(tokenizer);`
+          return [ident, [...lines, code], emits.replace(`$${index + 1}`, ident)]
+        },
+        ['', [] as string[], right.emits]
+      )
+      const tail = emits || ident
+      return wrapMatchArm(pattern, [...lines, tail].join('\n'))
+    }
+  }).join('\n')
+}
+
 export const generateCode = (productionList: Production[], table: NullableFirstFollowTable, replacements: ReplacementItem[]): string => {
   const allTokens = [...new Set(table.rows.map(r => [...r.first, ...r.follow]).flat())]
-  const gen = (leftSymbol: string, matches: Array<{left: ProductionSymbol, right: ProductionSymbol[], follow: boolean, tokens: string[]}>) => {
-    const matchArms = matches.map(({right, tokens}) => {
-      return `
-${tokens.map(t => replaceToken(t, replacements)).join(' | ')} => {
-  ${right.map(s => {
-    if (s.type === SymbolType.Terminal) {
-      return `tokenizer.eat(${replaceToken(s.symbol, replacements)});`
-    }
-    return `parse${s.symbol}(tokenizer);`
-  }).join('\n')}
-}
-      `.trim()
-    }).join('\n')
+  const gen = (production: Production, matches: Array<{right: ProductionRight, follow: boolean, tokens: string[]}>) => {
+    const acceptPrefix = production.right.some(r => r.acceptPrefix)
+    const matchArms = emitMatchArms(production, replacements, matches)
+    const args = acceptPrefix
+      ? ', prefix: Expression'
+      : ''
     return `
-fn parse${leftSymbol} (tokenizer: &mut Tokenizer) -> Expression {
+fn parse${production.left.symbol} (tokenizer: &mut Tokenizer${args}) -> Expression {
   match tokenizer.token() {
     ${matchArms}
-    tok => panic!("expected ${matches.map(m => m.tokens).flat().map(t => `\`${replaceToken(t, replacements)}\``).join(', ')}, but got {:#?}", tok)
+    tok => err(&[${matches.map(m => m.tokens).flat().map(t => `"${t}"`).join(', ')}], &tok)
   }
 }
     `.trim()
@@ -292,10 +360,9 @@ fn parse${leftSymbol} (tokenizer: &mut Tokenizer) -> Expression {
       new Map<number, {tokens: string[], follow: boolean}>()
     )
     const matchProductionTokens = [...map.entries()].map(([index, {tokens, follow}]) => {
-      const left = production.left
-      const right = production.right[index].content
-      return {left, right, follow, tokens}
+      const right = production.right[index]
+      return {right, follow, tokens}
     })
-    return gen(r.nonTerminalSymbol, matchProductionTokens)
+    return gen(production, matchProductionTokens)
   }).join('\n')
 }

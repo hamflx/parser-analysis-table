@@ -27,6 +27,7 @@ defineProps<{ productionList: Production[] }>()
                     <template v-for="sym of item.content">
                       <ProductionSymbol :symbol="sym.symbol"></ProductionSymbol>
                     </template>
+                    <span class="production__list__item__right__item__emits">{{ item.emits }}</span>
                   </div>
                 </template>
               </div>
@@ -69,6 +70,10 @@ defineProps<{ productionList: Production[] }>()
 
         &:last-child {
           margin-bottom: 0;
+        }
+
+        &__emits {
+          margin-left: 12px;
         }
       }
     }

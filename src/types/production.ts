@@ -10,6 +10,9 @@ export interface ProductionSymbol {
 
 export interface ProductionRight {
   content: ProductionSymbol[]
+  emits: string
+  acceptPrefix?: boolean
+  passToRight?: boolean
 }
 
 export interface Production {
@@ -20,6 +23,7 @@ export interface Production {
 export interface TypingProduction {
   left: string
   right: string
+  emits: string
 }
 
 export interface NullableFirstFollowTableRow {

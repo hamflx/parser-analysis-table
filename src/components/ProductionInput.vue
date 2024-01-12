@@ -4,7 +4,7 @@ import { TypingProduction } from '../types/production';
 const productionList= defineModel<TypingProduction[]>({ required: true })
 
 const onButtonAdd = (index: number) => {
-  productionList.value.splice(index + 1, 0, { left: '', right: '' })
+  productionList.value.splice(index + 1, 0, { left: '', right: '', emits: '' })
 }
 
 const onRemoveProduction = (index: number) => {
@@ -21,6 +21,8 @@ const onRemoveProduction = (index: number) => {
           <input v-model="pro.left"/>
           →
           <input v-model="pro.right"/>
+          →
+          <input v-model="pro.emits"/>
           <button @click="onRemoveProduction(index)">x</button>
           <button @click="onButtonAdd(index)">+</button>
         </div>
