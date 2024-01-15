@@ -245,7 +245,7 @@ const emitMatchArms = (production: Production, replacements: ReplacementItem[], 
   const acceptPrefix = production.right.some(r => r.acceptPrefix)
   return matches.map(({right, tokens}) => {
     const {content: symbols, passToRight} = right
-    const pattern = tokens.map(t => replaceToken(t, replacements)).join(' | ')
+    const pattern = tokens.map(t => replaceToken(t, replacements)).sort().join(' | ')
     if (acceptPrefix) {
       const [lines, replacedEmits] = symbols.slice(0, -1).reduce(
         ([lines, emits], sym, index) => {
@@ -300,7 +300,7 @@ const emitMatchArms = (production: Production, replacements: ReplacementItem[], 
       const tail = emits || ident
       return wrapMatchArm(pattern, [...lines, tail].join('\n'))
     }
-  }).join('\n')
+  }).sort().join('\n')
 }
 
 export const generateCode = (productionList: Production[], table: NullableFirstFollowTable, replacements: ReplacementItem[]): string => {
