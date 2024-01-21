@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue';
 import { grammar, replacements } from './grammar';
-import { parseProduction, eliminateLeftRecurse, createNullableFirstFollowTable, generateCode } from './analysis'
+import { parseProduction, eliminateLeftRecurse, createNullableFirstFollowTable, generateCode, extractCommonPrefix } from './analysis'
 import { type Production, type TypingProduction, type NullableFirstFollowTable, ReplacementItem } from '../types/production'
 import ProductionView from './ProductionView.vue';
 import ProductionSymbol from './ProductionSymbol.vue';
@@ -18,7 +18,7 @@ const generatedCode = ref('')
 watchEffect(() => {
   try {
     parsedProductionList.value = parseProduction(productionList.value)
-    rightRecurseProductionList.value = eliminateLeftRecurse(parsedProductionList.value)
+    rightRecurseProductionList.value = extractCommonPrefix(eliminateLeftRecurse(parsedProductionList.value))
     nullableFirstFollowTable.value = createNullableFirstFollowTable(rightRecurseProductionList.value)
     generatedCode.value = generateCode(rightRecurseProductionList.value, nullableFirstFollowTable.value, replacementList.value)
   } catch (e) {

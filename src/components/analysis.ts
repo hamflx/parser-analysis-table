@@ -78,6 +78,89 @@ export const eliminateLeftRecurse = (productionList: Production[]): Production[]
   return transformed
 }
 
+const findCommonPrefix = (...symsList: ProductionSymbol[][]): ProductionSymbol[] => {
+  const prefix: ProductionSymbol[] = []
+  const len = Math.min(...symsList.map(s => s.length))
+  for (let i = 0; i < len; i++) {
+    const sym = symsList[0][i]
+    const eq = symsList.every(l => l[i].type === sym.type && l[i].symbol === sym.symbol)
+    if (!eq) break
+    prefix.push({...sym})
+  }
+  return prefix
+}
+
+const splitProduction = (production: Production): Production[] => {
+  const {left, right} = production
+  const groups = right.reduce(
+    (list, item) => {
+      const first = item.content[0]
+      if (first) {
+        const group = list.find(r => r.sym && r.sym.type === first.type && r.sym.symbol === first.symbol)
+        if (group) {
+          group.list.push(item)
+        } else {
+          list.push({
+            sym: first,
+            list: [item]
+          })
+        }
+      } else {
+        list.push({sym: first, list: [item]})
+      }
+      return list
+    },
+    [] as Array<{sym?: ProductionSymbol, list: ProductionRight[]}>
+  )
+  if (groups.length === right.length) {
+    return [production]
+  }
+
+  if (right.some(r => r.acceptPrefix || r.passToRight)) {
+    throw new Error('unhandled case')
+  }
+
+  const result: ProductionRight[] = []
+  const newProductions: Production[] = []
+  let suffixLen = 0
+  for (const {list} of groups) {
+    if (list.length === 1) {
+      result.push(...list)
+      continue
+    }
+    const prefix = findCommonPrefix(...list.map(l => l.content))
+    const newSymbol: ProductionSymbol = {
+      symbol: `${left.symbol}${'_'.repeat(++suffixLen)}`,
+      type: SymbolType.NonTerminal
+    }
+    result.push({
+      content: [...prefix, newSymbol],
+      emits: ''
+    })
+    newProductions.push(...splitProduction({
+      left: newSymbol,
+      right: list.map(s => {
+        const content = s.content.slice(prefix.length)
+        return {...s, content}
+      })
+    }))
+  }
+  return [
+    {left, right: result},
+    ...newProductions
+  ]
+}
+
+const splitProductionRecurse = (production: Production): Production[] => {
+  const list = splitProduction(production)
+  if (list.length === 1) return list
+  return list.map(p => splitProductionRecurse(p)).flat()
+}
+
+export const extractCommonPrefix = (productionList: Production[]): Production[] => {
+  return productionList.map(p => splitProduction(p)).flat()
+}
+
 export const parseProduction = (input: TypingProduction[]): Production[] => {
   const productionList: Production[] = []
   const nonTerminalSymbols = input.map(i => i.left.trim())
